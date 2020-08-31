@@ -5,42 +5,54 @@
 
 .monaco-sash {
 	position: absolute;
-	z-index: 90;
+	z-index: 35;
 	touch-action: none;
 }
 
-.monaco-sash.vertical {
-	cursor: ew-resize;
-	height: 100%;
-	top: 0;
+.monaco-sash.disabled {
+	pointer-events: none;
 }
 
-.monaco-sash.horizontal {
-	cursor: ns-resize;
-	width: 100%;
-	left: 0;
+.monaco-sash.mac.vertical {
+	cursor: col-resize;
+}
+
+.monaco-sash.vertical.minimum {
+	cursor: e-resize;
+}
+
+.monaco-sash.vertical.maximum {
+	cursor: w-resize;
+}
+
+.monaco-sash.mac.horizontal {
+	cursor: row-resize;
+}
+
+.monaco-sash.horizontal.minimum {
+	cursor: s-resize;
+}
+
+.monaco-sash.horizontal.maximum {
+	cursor: n-resize;
 }
 
 .monaco-sash.disabled {
 	cursor: default !important;
+	pointer-events: none !important;
 }
 
-.vertical-cursor-container {
-	cursor: ew-resize;
+/** Debug **/
+
+.monaco-sash.debug {
+	background: cyan;
 }
 
-.horizontal-cursor-container {
-	cursor: ns-resize;
+.monaco-sash.debug.disabled {
+	background: rgba(0, 255, 255, 0.2);
 }
 
-/** Custom Mac Cursor */
-
-.monaco-sash.mac.vertical,
-.vertical-cursor-container-mac {
-	cursor: col-resize;
-}
-
-.monaco-sash.mac.horizontal,
-.horizontal-cursor-container-mac {
-	cursor: row-resize;
+.monaco-sash.debug:not(.disabled).orthogonal-start::before,
+.monaco-sash.debug:not(.disabled).orthogonal-end::after {
+	background: red;
 }

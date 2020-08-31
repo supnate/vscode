@@ -1,21 +1,21 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"module": "amd",
-		"moduleResolution": "classic",
-		"noImplicitAny": false,
 		"removeComments": false,
 		"preserveConstEnums": true,
-		"target": "es5",
 		"sourceMap": false,
-		"experimentalDecorators": true,
-		"declaration": true,
-		"noImplicitReturns": true,
-		"noUnusedLocals": true,
-		"noImplicitThis": true,
-		"baseUrl": ".",
-		"outDir": "../out",
-		"typeRoots": [
-			"typings"
+		"outDir": "../out/vs",
+		"target": "es2017",
+		"types": [
+			"keytar",
+			"mocha",
+			"semver",
+			"sinon",
+			"winreg"
 		]
-	}
+	},
+	"include": [
+		"./typings",
+		"./vs"
+	]
 }

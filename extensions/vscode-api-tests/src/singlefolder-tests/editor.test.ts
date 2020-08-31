@@ -3,13 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
 import * as assert from 'assert';
-import { workspace, window, Position, Range, commands, TextEditor, TextDocument, TextEditorCursorStyle, TextEditorLineNumbersStyle, SnippetString, Selection } from 'vscode';
+import { workspace, window, Position, Range, commands, TextEditor, TextDocument, TextEditorCursorStyle, TextEditorLineNumbersStyle, SnippetString, Selection, Uri, env } from 'vscode';
 import { createRandomFile, deleteFile, closeAllEditors } from '../utils';
 
-suite('editor tests', () => {
+suite('vscode API - editors', () => {
 
 	teardown(closeAllEditors);
 
@@ -47,6 +45,32 @@ suite('editor tests', () => {
 				assert.ok(doc.isDirty);
 			});
 		});
+	});
+
+	test('insert snippet with clipboard variables', async function () {
+		const old = await env.clipboard.readText();
+
+		const newValue = 'INTEGRATION-TESTS';
+		await env.clipboard.writeText(newValue);
+
+		const actualValue = await env.clipboard.readText();
+
+		if (actualValue !== newValue) {
+			// clipboard not working?!?
+			this.skip();
+			return;
+		}
+
+		const snippetString = new SnippetString('running: $CLIPBOARD');
+
+		await withRandomFileEditor('', async (editor, doc) => {
+			const inserted = await editor.insertSnippet(snippetString);
+			assert.ok(inserted);
+			assert.equal(doc.getText(), 'running: INTEGRATION-TESTS');
+			assert.ok(doc.isDirty);
+		});
+
+		await env.clipboard.writeText(old);
 	});
 
 	test('insert snippet with replacement, editor selection', () => {
@@ -152,7 +176,7 @@ suite('editor tests', () => {
 	});
 
 	test('issue #16573: Extension API: insertSpaces and tabSize are undefined', () => {
-		return withRandomFileEditor('Hello world!\n\tHello world!', (editor, doc) => {
+		return withRandomFileEditor('Hello world!\n\tHello world!', (editor, _doc) => {
 
 			assert.equal(editor.options.tabSize, 4);
 			assert.equal(editor.options.insertSpaces, false);
@@ -180,21 +204,56 @@ suite('editor tests', () => {
 	});
 
 	test('issue #20757: Overlapping ranges are not allowed!', () => {
-		return withRandomFileEditor('Hello world!\n\tHello world!', (editor, doc) => {
+		return withRandomFileEditor('Hello world!\n\tHello world!', (editor, _doc) => {
 			return editor.edit((builder) => {
 				// create two edits that overlap (i.e. are illegal)
 				builder.replace(new Range(0, 0, 0, 2), 'He');
 				builder.replace(new Range(0, 1, 0, 3), 'el');
 			}).then(
 
-				(applied) => {
+				(_applied) => {
 					assert.ok(false, 'edit with overlapping ranges should fail');
 				},
 
-				(err) => {
+				(_err) => {
 					assert.ok(true, 'edit with overlapping ranges should fail');
 				}
-				);
+			);
 		});
 	});
+
+	test('throw when using invalid edit', async function () {
+		await withRandomFileEditor('foo', editor => {
+			return new Promise((resolve, reject) => {
+				editor.edit(edit => {
+					edit.insert(new Position(0, 0), 'bar');
+					setTimeout(() => {
+						try {
+							edit.insert(new Position(0, 0), 'bar');
+							reject(new Error('expected error'));
+						} catch (err) {
+							assert.ok(true);
+							resolve();
+						}
+					}, 0);
+				});
+			});
+		});
+	});
+
+	test('editor contents are correctly read (small file)', function () {
+		return testEditorContents('/far.js');
+	});
+
+	test('editor contents are correctly read (large file)', async function () {
+		return testEditorContents('/lorem.txt');
+	});
+
+	async function testEditorContents(relativePath: string) {
+		const root = workspace.workspaceFolders![0]!.uri;
+		const file = Uri.parse(root.toString() + relativePath);
+		const document = await workspace.openTextDocument(file);
+
+		assert.equal(document.getText(), Buffer.from(await workspace.fs.readFile(file)).toString());
+	}
 });

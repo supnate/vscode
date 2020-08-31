@@ -3,30 +3,27 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
-import * as path from 'path';
+import * as path from 'vs/base/common/path';
 import * as arrays from 'vs/base/common/arrays';
 import * as strings from 'vs/base/common/strings';
-import * as paths from 'vs/base/common/paths';
+import * as extpath from 'vs/base/common/extpath';
 import * as platform from 'vs/base/common/platform';
 import * as types from 'vs/base/common/types';
-import { ParsedArgs } from 'vs/platform/environment/common/environment';
-import { realpathSync } from 'vs/base/node/extfs';
+import { ParsedArgs } from 'vs/platform/environment/node/argv';
 
 export function validatePaths(args: ParsedArgs): ParsedArgs {
+
 	// Track URLs if they're going to be used
 	if (args['open-url']) {
 		args._urls = args._;
 		args._ = [];
 	}
 
-	// Realpath/normalize paths and watch out for goto line mode
-	const paths = doValidatePaths(args._, args.goto);
-
-	// Update environment
-	args._ = paths;
-	args.diff = args.diff && paths.length === 2;
+	// Normalize paths and watch out for goto line mode
+	if (!args['remote']) {
+		const paths = doValidatePaths(args._, args.goto);
+		args._ = paths;
+	}
 
 	return args;
 }
@@ -36,9 +33,9 @@ function doValidatePaths(args: string[], gotoLineMode?: boolean): string[] {
 	const result = args.map(arg => {
 		let pathCandidate = String(arg);
 
-		let parsedPath: IPathWithLineAndColumn;
+		let parsedPath: extpath.IPathWithLineAndColumn | undefined = undefined;
 		if (gotoLineMode) {
-			parsedPath = parseLineAndColumnAware(pathCandidate);
+			parsedPath = extpath.parseLineAndColumnAware(pathCandidate);
 			pathCandidate = parsedPath.path;
 		}
 
@@ -46,30 +43,24 @@ function doValidatePaths(args: string[], gotoLineMode?: boolean): string[] {
 			pathCandidate = preparePath(cwd, pathCandidate);
 		}
 
-		let realPath: string;
-		try {
-			realPath = realpathSync(pathCandidate);
-		} catch (error) {
-			// in case of an error, assume the user wants to create this file
-			// if the path is relative, we join it to the cwd
-			realPath = path.normalize(path.isAbsolute(pathCandidate) ? pathCandidate : path.join(cwd, pathCandidate));
-		}
+		const sanitizedFilePath = extpath.sanitizeFilePath(pathCandidate, cwd);
 
-		const basename = path.basename(realPath);
-		if (basename /* can be empty if code is opened on root */ && !paths.isValidBasename(basename)) {
+		const basename = path.basename(sanitizedFilePath);
+		if (basename /* can be empty if code is opened on root */ && !extpath.isValidBasename(basename)) {
 			return null; // do not allow invalid file names
 		}
 
-		if (gotoLineMode) {
-			parsedPath.path = realPath;
+		if (gotoLineMode && parsedPath) {
+			parsedPath.path = sanitizedFilePath;
+
 			return toPath(parsedPath);
 		}
 
-		return realPath;
+		return sanitizedFilePath;
 	});
 
 	const caseInsensitive = platform.isWindows || platform.isMacintosh;
-	const distinct = arrays.distinct(result, e => e && caseInsensitive ? e.toLowerCase() : e);
+	const distinct = arrays.distinct(result, e => e && caseInsensitive ? e.toLowerCase() : (e || ''));
 
 	return arrays.coalesce(distinct);
 }
@@ -96,42 +87,7 @@ function preparePath(cwd: string, p: string): string {
 	return p;
 }
 
-export interface IPathWithLineAndColumn {
-	path: string;
-	line?: number;
-	column?: number;
-}
-
-export function parseLineAndColumnAware(rawPath: string): IPathWithLineAndColumn {
-	const segments = rawPath.split(':'); // C:\file.txt:<line>:<column>
-
-	let path: string;
-	let line: number = null;
-	let column: number = null;
-
-	segments.forEach(segment => {
-		const segmentAsNumber = Number(segment);
-		if (!types.isNumber(segmentAsNumber)) {
-			path = !!path ? [path, segment].join(':') : segment; // a colon can well be part of a path (e.g. C:\...)
-		} else if (line === null) {
-			line = segmentAsNumber;
-		} else if (column === null) {
-			column = segmentAsNumber;
-		}
-	});
-
-	if (!path) {
-		throw new Error('Format for `--goto` should be: `FILE:LINE(:COLUMN)`');
-	}
-
-	return {
-		path: path,
-		line: line !== null ? line : void 0,
-		column: column !== null ? column : line !== null ? 1 : void 0 // if we have a line, make sure column is also set
-	};
-}
-
-function toPath(p: IPathWithLineAndColumn): string {
+function toPath(p: extpath.IPathWithLineAndColumn): string {
 	const segments = [p.path];
 
 	if (types.isNumber(p.line)) {

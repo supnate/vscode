@@ -7,37 +7,61 @@ import { TrackedRangeStickiness, IModelDeltaDecoration, IModelDecorationsChangeA
 import { ModelDecorationOptions } from 'vs/editor/common/model/textModel';
 import { IDecorationProvider } from 'vs/editor/contrib/folding/foldingModel';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
+import { Codicon, registerIcon } from 'vs/base/common/codicons';
+
+export const foldingExpandedIcon = registerIcon('folding-expanded', Codicon.chevronDown);
+export const foldingCollapsedIcon = registerIcon('folding-collapsed', Codicon.chevronRight);
 
 export class FoldingDecorationProvider implements IDecorationProvider {
 
-	private COLLAPSED_VISUAL_DECORATION = ModelDecorationOptions.register({
+	private static readonly COLLAPSED_VISUAL_DECORATION = ModelDecorationOptions.register({
 		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 		afterContentClassName: 'inline-folded',
-		linesDecorationsClassName: 'folding collapsed'
+		isWholeLine: true,
+		firstLineDecorationClassName: foldingCollapsedIcon.classNames
 	});
 
-	private EXPANDED_AUTO_HIDE_VISUAL_DECORATION = ModelDecorationOptions.register({
+	private static readonly COLLAPSED_HIGHLIGHTED_VISUAL_DECORATION = ModelDecorationOptions.register({
 		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-		linesDecorationsClassName: 'folding'
+		afterContentClassName: 'inline-folded',
+		className: 'folded-background',
+		isWholeLine: true,
+		firstLineDecorationClassName: foldingCollapsedIcon.classNames
 	});
 
-	private EXPANDED_VISUAL_DECORATION = ModelDecorationOptions.register({
+	private static readonly EXPANDED_AUTO_HIDE_VISUAL_DECORATION = ModelDecorationOptions.register({
 		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-		linesDecorationsClassName: 'folding alwaysShowFoldIcons'
+		isWholeLine: true,
+		firstLineDecorationClassName: foldingExpandedIcon.classNames
+	});
+
+	private static readonly EXPANDED_VISUAL_DECORATION = ModelDecorationOptions.register({
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+		isWholeLine: true,
+		firstLineDecorationClassName: 'alwaysShowFoldIcons ' + foldingExpandedIcon.classNames
+	});
+
+	private static readonly HIDDEN_RANGE_DECORATION = ModelDecorationOptions.register({
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
 	});
 
 	public autoHideFoldingControls: boolean = true;
 
-	constructor(private editor: ICodeEditor) {
+	public showFoldingHighlights: boolean = true;
+
+	constructor(private readonly editor: ICodeEditor) {
 	}
 
-	getDecorationOption(isCollapsed: boolean): ModelDecorationOptions {
+	getDecorationOption(isCollapsed: boolean, isHidden: boolean): ModelDecorationOptions {
+		if (isHidden) {
+			return FoldingDecorationProvider.HIDDEN_RANGE_DECORATION;
+		}
 		if (isCollapsed) {
-			return this.COLLAPSED_VISUAL_DECORATION;
+			return this.showFoldingHighlights ? FoldingDecorationProvider.COLLAPSED_HIGHLIGHTED_VISUAL_DECORATION : FoldingDecorationProvider.COLLAPSED_VISUAL_DECORATION;
 		} else if (this.autoHideFoldingControls) {
-			return this.EXPANDED_AUTO_HIDE_VISUAL_DECORATION;
+			return FoldingDecorationProvider.EXPANDED_AUTO_HIDE_VISUAL_DECORATION;
 		} else {
-			return this.EXPANDED_VISUAL_DECORATION;
+			return FoldingDecorationProvider.EXPANDED_VISUAL_DECORATION;
 		}
 	}
 

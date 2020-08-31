@@ -2,12 +2,13 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 
-import { IMouseEvent } from 'vs/base/browser/mouseEvent';
 import { GlobalMouseMoveMonitor, IStandardMouseMoveEventData, standardMouseMoveMerger } from 'vs/base/browser/globalMouseMoveMonitor';
+import { IMouseEvent } from 'vs/base/browser/mouseEvent';
 import { Widget } from 'vs/base/browser/ui/widget';
-import { TimeoutTimer, IntervalTimer } from 'vs/base/common/async';
+import { IntervalTimer, TimeoutTimer } from 'vs/base/common/async';
+import { Codicon } from 'vs/base/common/codicons';
+import { addClasses } from 'vs/base/browser/dom';
 
 /**
  * The arrow image size.
@@ -17,6 +18,7 @@ export const ARROW_IMG_SIZE = 11;
 export interface ScrollbarArrowOptions {
 	onActivate: () => void;
 	className: string;
+	icon: Codicon;
 
 	bgWidth: number;
 	bgHeight: number;
@@ -60,6 +62,8 @@ export class ScrollbarArrow extends Widget {
 
 		this.domNode = document.createElement('div');
 		this.domNode.className = opts.className;
+		addClasses(this.domNode, opts.icon.classNames);
+
 		this.domNode.style.position = 'absolute';
 		this.domNode.style.width = ARROW_IMG_SIZE + 'px';
 		this.domNode.style.height = ARROW_IMG_SIZE + 'px';
@@ -94,6 +98,8 @@ export class ScrollbarArrow extends Widget {
 		this._mousedownScheduleRepeatTimer.cancelAndSet(scheduleRepeater, 200);
 
 		this._mouseMoveMonitor.startMonitoring(
+			e.target,
+			e.buttons,
 			standardMouseMoveMerger,
 			(mouseMoveData: IStandardMouseMoveEventData) => {
 				/* Intentional empty */
